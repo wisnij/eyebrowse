@@ -192,6 +192,20 @@ window configs."
   :type 'boolean
   :group 'eyebrowse)
 
+(defcustom eyebrowse-default-occupied-mode 'shift
+  "What to do when moving a window config to an already-occupied slot.
+
+`error' or nil: Signal an error.
+
+`overwrite': Clobber the config currently in the destination slot.
+
+`shift': Move the window config in the destination and as many
+following slots as necessary up by one to make room."
+  :type '(choice (const :tag "Error" error)
+                 (const :tag "Overwrite" overwrite)
+                 (const :tag "Shift" shift))
+  :group 'eyebrowse)
+
 (defvar eyebrowse-mode-map
   (let ((map (make-sparse-keymap))
         (prefix-map (make-sparse-keymap)))
@@ -489,10 +503,12 @@ prefix argument to select a slot by its number."
          (tag (or tag (read-string "Tag: " current-tag))))
     (setf (nth 2 window-config) tag)))
 
-(defun eyebrowse-move-window-config (old-slot new-slot &optional overwrite-existing)
+(defun eyebrowse-move-window-config (old-slot new-slot &optional occupied-mode)
   "Move a window config from OLD-SLOT to NEW-SLOT.
-Signal an error if OLD-SLOT is not occupied, or if NEW-SLOT is
-already occupied and OVERWRITE-EXISTING is nil.
+Signal an error if OLD-SLOT is not occupied.
+
+If NEW-SLOT is already occupied, decide what to do based on
+OCCUPIED-MODE, or `eyebrowse-default-occupied-mode' (which see).
 
 When used interactively, move the current window config to the
 slot given as a numerical prefix argument, or in response to the
@@ -504,18 +520,23 @@ prompt shown if none is given."
                                     (eyebrowse-free-slot
                                      (mapcar 'car (eyebrowse--get 'window-configs)))))))
   (when (/= old-slot new-slot)
-    (let ((new-slot-exists (eyebrowse--window-config-present-p new-slot)))
-      (unless (eyebrowse--window-config-present-p old-slot)
-        (user-error "No window configuration in slot %d" old-slot))
-      (when (and new-slot-exists (not overwrite-existing))
-        (user-error "Window configuration already exists in slot %d" new-slot))
+    (unless (eyebrowse--window-config-present-p old-slot)
+      (user-error "No window configuration in slot %d" old-slot))
+    (let ((new-slot-occupied (eyebrowse--window-config-present-p new-slot)))
+      (when new-slot-occupied
+        (let ((occupied-mode (or occupied-mode eyebrowse-default-occupied-mode)))
+          (cond ((eq occupied-mode 'overwrite) t)
+                ((eq occupied-mode 'shift)
+                 (eyebrowse-move-window-config new-slot (1+ new-slot) 'shift)
+                 (setq new-slot-occupied nil))
+                (t (user-error "Window configuration already exists in slot %d" new-slot)))))
       (let* ((current-slot (eyebrowse--get 'current-slot))
              (last-slot (eyebrowse--get 'last-slot))
              (window-configs (eyebrowse--get 'window-configs))
              (old-config-element (assoc old-slot window-configs))
              (new-config-element (cons new-slot (cdr old-config-element))))
         ;; write existing config+tag to new-slot
-        (if new-slot-exists
+        (if new-slot-occupied
             (eyebrowse--update-window-config-element new-config-element)
           (eyebrowse--insert-in-window-config-list new-config-element))
         ;; update current-slot if equal to old-slot
