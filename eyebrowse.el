@@ -518,7 +518,7 @@ prompt shown if none is given."
         ;; remove element from old-slot
         (eyebrowse--delete-window-config old-slot)))))
 
-(defun eyebrowse-consolidate-window-configs ()
+(defun eyebrowse-renumber-window-configs ()
   "Renumber existing window configs in integer order starting at 1,
 maintaining the same relative order and tags."
   (interactive)
