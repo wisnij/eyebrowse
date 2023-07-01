@@ -185,6 +185,13 @@ If t, ask for confirmation."
   :type 'boolean
   :group 'eyebrowse)
 
+(defcustom eyebrowse-auto-renumber-window-configs nil
+  "If t, automatically renumber window configs in numerical order
+whenever a window config is closed.  If nil, do not renumber the
+window configs."
+  :type 'boolean
+  :group 'eyebrowse)
+
 (defvar eyebrowse-mode-map
   (let ((map (make-sparse-keymap))
         (prefix-map (make-sparse-keymap)))
@@ -460,6 +467,8 @@ another appropriate window config."
         (eyebrowse-next-window-config nil))
       (run-hooks 'eyebrowse-pre-window-delete-hook)
       (eyebrowse--delete-window-config (eyebrowse--get 'last-slot))
+      (when eyebrowse-auto-renumber-window-configs
+        (eyebrowse-renumber-window-configs))
       (run-hooks 'eyebrowse-post-window-delete-hook))))
 
 (defun eyebrowse-rename-window-config (slot tag)
